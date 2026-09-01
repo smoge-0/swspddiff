@@ -47,6 +47,11 @@ def _fmt_mon(lead: int, mon) -> str:
     return f"{lead} lead {_unit_name(mon)}"
 
 
+def _base_speed_lines(m1, m2) -> str:
+    """Lines above the output box: 'Lora base speed: 120'."""
+    return f"{_unit_name(m1)} base speed: {m1.speed}\n{_unit_name(m2)} base speed: {m2.speed}"
+
+
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
@@ -151,7 +156,7 @@ def _build_race_embed(m1, m2, lead1: int, lead2: int) -> discord.Embed:
     color = discord.Color.green() if res.winner == "mon1" \
         else discord.Color.red() if res.winner == "mon2" else discord.Color.dark_gray()
     embed = discord.Embed(title="⚡ Speed Race", color=color)
-    embed.description = _block(_race_line(m1, m2, lead1, lead2))
+    embed.description = f"{_base_speed_lines(m1, m2)}\n\n{_block(_race_line(m1, m2, lead1, lead2))}"
     for note in res.passive_notes:
         embed.add_field(name="Passive", value=note, inline=False)
     return embed
@@ -164,7 +169,8 @@ def _build_needed_embed(m1, m2, lead1: int, lead2: int, rune1: int) -> discord.E
                    f"{lead2} lead +{res.needed} {_unit_name(m2)}")
     color = discord.Color.green()
     embed = discord.Embed(title="⚡ Speed Check", color=color)
-    embed.description = _block(f"{_race_line(m1, m2, lead1, lead2)}\n{needed_line}")
+    embed.description = f"{_base_speed_lines(m1, m2)}\n\n" \
+                        f"{_block(f'{_race_line(m1, m2, lead1, lead2)}\n{needed_line}')}"
     for note in res.passive_notes:
         embed.add_field(name="Passive", value=note, inline=False)
     return embed
