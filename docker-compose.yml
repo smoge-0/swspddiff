@@ -1,0 +1,17 @@
+services:
+  speedrace-bot:
+    build: .
+    image: speedrace-bot:latest
+    container_name: speedrace-bot
+    restart: unless-stopped
+    env_file:
+      - .env            # DISCORD_TOKEN (required), GUILD_ID (optional)
+    volumes:
+      # base stats + name mapping from the parent repo, read-only
+      - ../sw_data.db:/app/sw_data.db:ro
+      - ../mapping.json:/app/mapping.json:ro
+      # swarfarm refresh cache persists across restarts
+      - speedrace-data:/app/speedrace_bot/data
+
+volumes:
+  speedrace-data:
