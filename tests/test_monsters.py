@@ -65,6 +65,15 @@ class RosterTests(unittest.TestCase):
         demon = self.roster.resolve("Demon")    # unawakened family name
         self.assertIsNotNone(demon)
 
+    def test_ambiguous_names_flagged(self):
+        # family names shared by 2+ elements get element disambiguation
+        self.assertIn("Fairy", self.roster.ambiguous_names)
+        self.assertIn("Slime", self.roster.ambiguous_names)
+        self.assertIn("Werewolf", self.roster.ambiguous_names)
+        # unique awakened names are not ambiguous
+        for name in ("Lora", "Triton", "Chilling", "Elsharion", "Eshir", "Belial"):
+            self.assertNotIn(name, self.roster.ambiguous_names, name)
+
 
 class ExclusionTests(unittest.TestCase):
     def test_families(self):

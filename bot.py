@@ -36,8 +36,15 @@ def _diff_token(diff: int) -> str:
     return f"+{diff}" if diff > 0 else str(diff)
 
 
-def _fmt_mon(lead: int, name: str) -> str:
-    return f"{lead} lead {name}"
+def _unit_name(mon) -> str:
+    """Disambiguate names shared by multiple elements: 'Fairy (Water)'."""
+    if mon.name in _roster.ambiguous_names:
+        return f"{mon.name} ({mon.element})"
+    return mon.name
+
+
+def _fmt_mon(lead: int, mon) -> str:
+    return f"{lead} lead {_unit_name(mon)}"
 
 
 intents = discord.Intents.default()
@@ -132,7 +139,7 @@ async def speedrace(
 def _race_line(m1, m2, lead1: int, lead2: int) -> str:
     """Doc output line 1: '24 lead Lora (+6)  vs  24 lead Triton (-6)'."""
     res = compare_race(m1.name, m1.speed, lead1, m2.name, m2.speed, lead2)
-    p1, p2 = _fmt_mon(lead1, m1.name), _fmt_mon(lead2, m2.name)
+    p1, p2 = _fmt_mon(lead1, m1), _fmt_mon(lead2, m2)
     token1, token2 = _diff_token(res.diff), _diff_token(-res.diff)
     c1 = "green" if res.diff > 0 else ("red" if res.diff < 0 else "amber")
     c2 = "red" if res.diff > 0 else ("green" if res.diff < 0 else "amber")
@@ -153,8 +160,8 @@ def _build_race_embed(m1, m2, lead1: int, lead2: int) -> discord.Embed:
 def _build_needed_embed(m1, m2, lead1: int, lead2: int, rune1: int) -> discord.Embed:
     res = needed_rune_spd(m1.name, m1.speed, lead1, rune1, m2.name, m2.speed, lead2)
     # Doc output line 2: '24 lead +220 Lora outspeeds 24 lead +225 Triton'
-    needed_line = (f"{lead1} lead +{rune1} {m1.name}  outspeeds  "
-                   f"{lead2} lead +{res.needed} {m2.name}")
+    needed_line = (f"{lead1} lead +{rune1} {_unit_name(m1)}  outspeeds  "
+                   f"{lead2} lead +{res.needed} {_unit_name(m2)}")
     color = discord.Color.green()
     embed = discord.Embed(title="⚡ Speed Check", color=color)
     embed.description = _block(f"{_race_line(m1, m2, lead1, lead2)}\n{needed_line}")

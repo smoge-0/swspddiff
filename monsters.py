@@ -298,6 +298,14 @@ class Roster:
         for mon in sorted(monsters.values(), key=lambda m: (m.awaken_level, m.com2us_id)):
             key = (mon.name.lower(), mon.element.lower())
             self.by_name_element[key] = mon
+        # Names shared by 2+ elements (e.g. unawakened family names) — the
+        # output shows the element for exactly this population.
+        elements_by_name: dict[str, set[str]] = {}
+        for mon in monsters.values():
+            elements_by_name.setdefault(mon.name, set()).add(mon.element)
+        self.ambiguous_names = frozenset(
+            name for name, elements in elements_by_name.items() if len(elements) > 1
+        )
 
     @classmethod
     def build(cls) -> "Roster":
