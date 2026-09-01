@@ -67,25 +67,28 @@ the real totals that decide the winner / required SPD, but is **hidden** from
 the displayed numbers — e.g. a raw `+259` need for Chilling is shown as `+220`
 — and a note is appended ("Chilling gains +39 spd from two buffs.").
 
-## Data sources (hybrid)
+## Data sources
 
-- **Primary:** `../sw_data.db` — level-40 base speeds (itself generated from
-  the swarfarm API via `save_monster_list.py`); offline and instant.
+- **`mapping.json`** — English name mapping, bundled with the repo.
+- **`sw_data.db`** — level-40 base speeds. Expected at `../sw_data.db`
+  (parent repo) by default; override the location with the `SW_DATA_DB` env
+  var. If it doesn't exist, the bot **creates it automatically** on startup
+  from the swarfarm API (or from the on-disk swarfarm cache when offline).
 - **Refresh:** on startup (when the `data/swarfarm_monsters.json` cache is
   older than 7 days) the bot paginates `https://swarfarm.com/api/v2/monsters/`
-  in a background thread and **adds** monsters missing locally — existing
-  entries are never overridden. Swarfarm being down never blocks the bot.
-- Korean names in the db are translated via `../mapping.json` (family name for
+  in a background thread and **adds** monsters missing from the roster —
+  existing entries are never overridden. Swarfarm being down never blocks the
+  bot.
+- Korean names in the db are translated via `mapping.json` (family name for
   unawakened forms, individual name for awakened forms). Non-playable entities
   (towers, crystals, incarnations, bosses) are excluded; homunculi are kept.
 
 ## Run with Docker (optional)
 
-Requires Docker with Compose v2. The image only contains the bot code; the
-monster database and name mapping are mounted read-only from the parent repo,
-so the container always uses the same data as your host (no rebuild needed
-when `sw_data.db` is refreshed). See [`PROXMOX.md`](PROXMOX.md) for a full
-step-by-step deploy on a Proxmox Debian LXC container.
+Requires Docker with Compose v2. The image ships the bot code + `mapping.json`;
+`sw_data.db` is auto-created on first run into a persistent volume (no host
+files needed). See [`PROXMOX.md`](PROXMOX.md) for a full step-by-step deploy on
+a Proxmox Debian LXC container.
 
 ```bash
 cd speedrace_bot
@@ -93,16 +96,18 @@ echo "DISCORD_TOKEN=..." > .env          # same .env as the bare run
 docker compose up -d --build             # build + start in background
 docker compose logs -f                   # follow logs
 docker compose down                      # stop (data volume is kept)
-docker compose down -v                   # stop and delete the swarfarm cache
+docker compose down -v                   # stop and delete the db + swarfarm cache
 ```
 
 Container layout:
 
 | path | what |
 |---|---|
-| `/app/speedrace_bot` | bot code (baked into the image) |
-| `/app/sw_data.db`, `/app/mapping.json` | mounted read-only from `../` |
-| `/app/speedrace_bot/data` | swarfarm cache (named volume `speedrace-data`, survives restarts) |
+| `/app/speedrace_bot` | bot code + `mapping.json` (baked into the image) |
+| `/app/speedrace_bot/data` | named volume `speedrace-data`: auto-created `sw_data.db` (`SW_DATA_DB`) + swarfarm cache, survives restarts |
+
+Note: the first start needs outbound network so the bot can bootstrap
+`sw_data.db` from the swarfarm API if the volume is empty.
 
 ## Tests
 

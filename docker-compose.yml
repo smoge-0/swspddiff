@@ -6,11 +6,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env            # DISCORD_TOKEN (required), GUILD_ID (optional)
+    environment:
+      # create/keep sw_data.db inside the persistent cache volume
+      SW_DATA_DB: /app/speedrace_bot/data/sw_data.db
     volumes:
-      # base stats + name mapping from the parent repo, read-only
-      - ../sw_data.db:/app/sw_data.db:ro
-      - ../mapping.json:/app/mapping.json:ro
-      # swarfarm refresh cache persists across restarts
+      # swarfarm cache + auto-created sw_data.db survive restarts
       - speedrace-data:/app/speedrace_bot/data
 
 volumes:

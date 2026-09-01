@@ -8,8 +8,15 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 PARENT_DIR = BASE_DIR.parent  # repo root holding sw_data.db / mapping.json
 
-DB_PATH = PARENT_DIR / "sw_data.db"
-MAPPING_PATH = PARENT_DIR / "mapping.json"
+# Monster base stats db. The bot creates it from swarfarm data on first run
+# if it doesn't exist; SW_DATA_DB overrides the location (used in Docker).
+DB_PATH = Path(os.getenv("SW_DATA_DB", str(PARENT_DIR / "sw_data.db")))
+
+# English name mapping is bundled with the repo; fall back to the parent
+# repo copy for legacy layouts.
+MAPPING_PATH = BASE_DIR / "mapping.json"
+if not MAPPING_PATH.is_file():
+    MAPPING_PATH = PARENT_DIR / "mapping.json"
 
 # --- speed model constants (planning_doc.md) --------------------------------
 TOWER_BONUS = 0.15          # 15% of base from the Speed Tower

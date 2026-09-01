@@ -64,38 +64,26 @@ Both come from Debian's own repos — no curl-pipe-to-shell script needed.
 
 ---
 
-## 3. Copy the bot + data files into the container
+## 3. Get the bot code into the container
 
-The container expects this layout (same relative structure as your repo):
+The repo is self-contained: bot code + `mapping.json` are in the repo, and
+`sw_data.db` is **auto-created on first run** (from the swarfarm API, into the
+docker volume) — no data files to copy.
 
-```
-/opt/speedrace/
-├── sw_data.db          <- monster base stats (parent repo)
-├── mapping.json        <- name mapping (parent repo)
-└── speedrace_bot/      <- this project (Dockerfile, compose, code)
-```
-
-From your PC (PowerShell, replace `root@<CT-IP>` with the container's IP —
-check with `pct enter 100 && ip a`):
-
-```powershell
-# Windows PowerShell
-scp sw_data.db mapping.json root@<CT-IP>:~/
-scp -r speedrace_bot root@<CT-IP>:~/
-```
-
-Then in the container:
+Clone the repo (recommended — makes updates a `git pull`):
 
 ```bash
 # inside LXC
-mkdir -p /opt/speedrace
-mv ~/sw_data.db ~/mapping.json /opt/speedrace/
-mv ~/speedrace_bot /opt/speedrace/
-ls -l /opt/speedrace        # sanity check
+apt install -y git
+git clone https://github.com/smoge-0/swspddiff.git /opt/swspddiff
 ```
 
-> The `.env` file inside `speedrace_bot/` is copied along — verify the token
-> in it is the one you want to use.
+Or copy from your PC if you don't want git on the container (PowerShell):
+
+```powershell
+# Windows PowerShell
+scp -r speedrace_bot root@<CT-IP>:/opt/swspddiff
+```
 
 ---
 
@@ -103,7 +91,7 @@ ls -l /opt/speedrace        # sanity check
 
 ```bash
 # inside LXC
-cd /opt/speedrace/speedrace_bot
+cd /opt/swspddiff
 nano .env        # DISCORD_TOKEN=... and optionally GUILD_ID=...
 chmod 600 .env
 ```
@@ -119,7 +107,7 @@ chmod 600 .env
 
 ```bash
 # inside LXC
-cd /opt/speedrace/speedrace_bot
+cd /opt/swspddiff
 docker compose up -d --build
 docker compose logs -f
 ```
@@ -131,8 +119,10 @@ INFO:speedrace:logged in as swspddiff#3349
 INFO:speedrace:synced 1 command(s)
 ```
 
-The compose file sets `restart: unless-stopped`, so the bot survives
-container restarts and Proxmox reboots automatically.
+On the first start the bot also logs creating `sw_data.db` from the swarfarm
+API (needs outbound network once); afterwards the db + cache live in the
+`speedrace-data` volume. The compose file sets `restart: unless-stopped`, so
+the bot survives container restarts and Proxmox reboots automatically.
 
 > **Before switching over:** the bot is currently running on your Windows PC.
 > Discord only allows one active connection per token, so stop the Windows
@@ -145,10 +135,10 @@ container restarts and Proxmox reboots automatically.
 
 | What changed | Do this |
 |---|---|
-| Bot code (`bot.py`, ...) | re-copy the `speedrace_bot/` dir (scp), then `docker compose up -d --build` |
-| `sw_data.db` / `mapping.json` | scp the new file to `/opt/speedrace/`, then `docker compose restart` (the roster is loaded once at startup) |
+| Bot code (`bot.py`, ...) | `git pull` in `/opt/swspddiff`, then `docker compose up -d --build` |
+| `sw_data.db` / monster list | recreate from swarfarm: `docker compose exec speedrace-bot rm -f /app/speedrace_bot/data/sw_data.db` then `docker compose restart` |
 | Token / `GUILD_ID` | edit `.env`, then `docker compose restart` |
-| See logs / stop | `docker compose logs -f` / `docker compose down` (the `speedrace-data` cache volume is kept) |
+| See logs / stop | `docker compose logs -f` / `docker compose down` (the `speedrace-data` volume is kept) |
 
 ---
 
@@ -163,14 +153,14 @@ container restarts and Proxmox reboots automatically.
   systemctl restart docker
   docker compose up -d --build
   ```
-- **Unprivileged CT + read-only data mounts**: the bot reads the mounted
-  files as uid 1000 inside the container. Keep the host files world-readable
-  (default `644` is fine — `chmod 644 /opt/speedrace/sw_data.db`).
+- **Unprivileged CT**: the bot writes only into the `speedrace-data` volume
+  (owned by the container's uid 1000), so no host file permissions to manage.
 - **Command doesn't appear in Discord**: check the bot is in the server and
   `GUILD_ID` is correct; without `GUILD_ID`, global sync can take up to an
   hour.
 - **No outbound network**: the bot needs outbound HTTPS (443) to Discord and
-  swarfarm; no inbound ports are required. If the CT has a firewall, allow
-  outbound 443.
+  swarfarm (the latter only for the first-run `sw_data.db` bootstrap and the
+  7-day refresh); no inbound ports are required. If the CT has a firewall,
+  allow outbound 443.
 - **`env file not found: .env`** on `docker compose up` — the `.env` file is
-  missing in `/opt/speedrace/speedrace_bot/`; create it (step 4).
+  missing in `/opt/swspddiff`; create it (step 4).

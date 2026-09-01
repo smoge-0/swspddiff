@@ -144,6 +144,75 @@ def _load_local_db() -> dict[int, Monster]:
 
 # --- swarfarm hybrid refresh ------------------------------------------------
 
+_MONSTERS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS monsters (
+    id INTEGER PRIMARY KEY,
+    com2us_id INTEGER,
+    name TEXT,
+    element TEXT,
+    base_hp INTEGER,
+    base_attack INTEGER,
+    base_defense INTEGER,
+    speed INTEGER,
+    crit_rate INTEGER,
+    crit_damage INTEGER,
+    awaken_level BOOLEAN,
+    ls_attribute TEXT,
+    ls_amount INTEGER,
+    ls_area TEXT,
+    ls_element TEXT
+)
+"""
+
+
+def _entry_row(entry: dict) -> tuple:
+    """Map a swarfarm API entry to a monsters-table row (parent-compatible)."""
+    ls = entry.get("leader_skill") or {}
+    return (
+        entry.get("id"), entry.get("com2us_id"), entry.get("name"),
+        entry.get("element"), entry.get("base_hp"), entry.get("base_attack"),
+        entry.get("base_defense"), entry.get("speed"), entry.get("crit_rate"),
+        entry.get("crit_damage"), int(entry.get("awaken_level") or 0),
+        ls.get("attribute"), ls.get("amount"), ls.get("area"), ls.get("element"),
+    )
+
+
+def write_db(entries: list[dict]) -> None:
+    """Create (or replace rows in) the local db from swarfarm entries."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(str(DB_PATH))
+    try:
+        con.execute(_MONSTERS_SCHEMA)
+        con.executemany(
+            "INSERT OR REPLACE INTO monsters VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (_entry_row(e) for e in entries),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def ensure_local_db() -> bool:
+    """Create DB_PATH from swarfarm data when it doesn't exist. Returns True if created.
+
+    Uses the on-disk swarfarm cache when available (offline-friendly), else
+    fetches the swarfarm API. Raises on failure so callers can surface a
+    clear startup error.
+    """
+    if DB_PATH.is_file():
+        return False
+    log.info("sw_data.db not found — bootstrapping from swarfarm data")
+    entries = load_swarfarm_cache()
+    source = "cached swarfarm data"
+    if not entries:
+        entries = _fetch_swarfarm_pages()
+        source = "swarfarm API"
+    write_db(entries)
+    Path(SWARFARM_CACHE).parent.mkdir(parents=True, exist_ok=True)
+    Path(SWARFARM_CACHE).write_text(json.dumps(entries), encoding="utf-8")
+    log.info("created %s (%d monsters) from %s", DB_PATH, len(entries), source)
+    return True
+
 def _fetch_swarfarm_pages() -> list[dict]:
     """Fetch every page of the swarfarm v2 monsters endpoint."""
     out: list[dict] = []
@@ -232,6 +301,13 @@ class Roster:
 
     @classmethod
     def build(cls) -> "Roster":
+        try:
+            ensure_local_db()
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"sw_data.db is missing and could not be created from swarfarm "
+                f"({exc}). Check the network or place a sw_data.db at {DB_PATH}."
+            ) from exc
         roster = _load_local_db()
         for entry in load_swarfarm_cache():
             roster = merge_swarfarm_entries(roster, [entry])
