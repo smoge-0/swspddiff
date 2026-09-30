@@ -47,18 +47,23 @@ Output, e.g. `24 lead Lora (+6) vs 24 lead Triton (-6)` with +6 green / -6 red
 
 ### Field 2 — needed SPD (when `mon1_rune_spd` given)
 
-The rune SPD value already includes the Swift set bonus, so only Tower + lead
-scale the base:
+The entered rune SPD already includes the Swift set bonus as the game displays
+it, so only Tower + lead scale the base, and the game's single ceil is modelled
+by removing the leftover Swift fraction (swcalc.cz mechanics):
 
 ```
-bonus     = roundUp(base * (0.15 + lead/100))
-mon1 total = base + bonus + rune_spd
-mon2 needs = mon1 total - mon2 base - mon2 bonus     (to tie)
-           + 1                                       (to strictly outspeed)
+combat     = roundUp(base * (1 + 0.15 + lead/100) + rune_spd - (1 - (base*0.25) % 1))
+mon1 total = combat + passive
+mon2 needs = smallest rune SPD whose combat speed reaches that total
+             (+1 to strictly outspeed rather than tie)
 ```
 
-Output, e.g. `24 lead +220 Lora outspeeds 24 lead +225 Triton`, plus a detail
-line stating the total and the +1 for a strict outspeed.
+The correction only matters when `base * 0.25` is fractional — e.g. Chilling
+(base 101 → 25.25, displayed as +26): without it the total and the requirement
+are each 1 too high. Bases with a whole Swift fraction (Lora 120 → 30) are
+unaffected, which is why the doc's Lora example is unchanged.
+
+Output, e.g. `24 lead +220 Lora outspeeds 24 lead +225 Triton`.
 
 ### Special cases (Chilling / Elsharion)
 
