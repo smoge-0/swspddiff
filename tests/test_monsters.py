@@ -33,6 +33,21 @@ class RosterTests(unittest.TestCase):
         self.assertEqual(self.roster.resolve("Water Chilling").name, "Chilling")
         self.assertEqual(self.roster.resolve("not-a-monster"), None)
 
+    def test_resolve_selection_accepts_dropdown_id_only(self):
+        # the autocomplete submits the com2us_id as the option value
+        self.assertEqual(self.roster.resolve_selection("16114").name, "Lora")
+        self.assertEqual(self.roster.resolve_selection(" 16114 ").name, "Lora")
+        self.assertIsNotNone(self.roster.resolve_selection("20711"))
+
+    def test_resolve_selection_rejects_free_typed_text(self):
+        for value in ("Lora", "Lora (Light, 120)", "Water Chilling",
+                      "lora", "Zenitsu", "", "   ", "abc", "-1", "1e5"):
+            self.assertIsNone(self.roster.resolve_selection(value), repr(value))
+
+    def test_resolve_selection_rejects_unknown_id(self):
+        self.assertIsNone(self.roster.resolve_selection("99999999"))
+        self.assertIsNone(self.roster.resolve_selection("0"))
+
     def test_search_case_insensitive(self):
         hits = self.roster.search("lora")
         self.assertTrue(hits)

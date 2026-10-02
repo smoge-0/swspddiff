@@ -69,3 +69,5 @@ This bonus should be invisible in the output results.
 e.g. +259 chilling should be shown as +220 chilling in results
 
 Similar for elsharion but +25 spd instead of +39
+
+**Speed Tune Function**

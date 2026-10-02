@@ -32,7 +32,9 @@ globally — global sync can take up to an hour to propagate).
 | `mon1_rune_spd` | no       | mon1 rune SPD incl. Swift set — when given, the bot reports what rune SPD mon2 needs to catch/outspeed mon1 |
 
 Discord autocomplete works on command parameters, so the two monsters live on
-one command (the "dropdown" is the autocomplete suggestion list).
+one command (the "dropdown" is the autocomplete suggestion list). Both units
+must be **picked from that suggestion list** — submitting free-typed text is
+rejected with "pick each unit from the autocomplete dropdown".
 
 ### Field 1 — race comparison (no `mon1_rune_spd`)
 

@@ -372,6 +372,18 @@ class Roster:
         exact = [m for m in candidates if m.name.lower() == name.lower()]
         return exact[0] if exact else candidates[0]
 
+    def resolve_selection(self, value: str) -> Monster | None:
+        """Resolve a unit *selected from the autocomplete dropdown*.
+
+        The dropdown always submits the com2us_id, so anything else means the
+        user submitted free-typed text without picking a suggestion — that is
+        rejected rather than guessed at.
+        """
+        value = value.strip()
+        if not value.isdigit():
+            return None
+        return self.by_id.get(int(value))
+
 
 def load_roster() -> Roster:
     """Build the roster from local db + cached swarfarm data."""

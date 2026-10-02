@@ -124,12 +124,13 @@ async def speedrace(
         await interaction.followup.send("Rune SPD can't be negative.", ephemeral=True)
         return
 
-    m1 = _roster.resolve(mon1)
-    m2 = _roster.resolve(mon2)
+    m1 = _roster.resolve_selection(mon1)
+    m2 = _roster.resolve_selection(mon2)
     if m1 is None or m2 is None:
         missing = [q for q, m in ((mon1, m1), (mon2, m2)) if m is None]
         await interaction.followup.send(
-            f"Couldn't find: {', '.join(missing)}. Pick from the autocomplete dropdown.",
+            "Couldn't find: " + ", ".join(missing) +
+            ". Pick each unit from the autocomplete dropdown — typed names aren't accepted.",
             ephemeral=True,
         )
         return
