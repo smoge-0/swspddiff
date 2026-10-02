@@ -328,27 +328,33 @@ class Roster:
         return self.by_id.get(com2us_id)
 
     def search(self, query: str, limit: int = 25) -> list[Monster]:
-        """Substring search over English names (case-insensitive), deduped."""
+        """Substring search over English names (case-insensitive), deduped.
+
+        When several monsters share a name and element (e.g. an unawakened and
+        an awakened entry — Zenitsu Agatsuma 101/106), only the highest
+        ``(awaken_level, com2us_id)`` is returned: the form the player owns,
+        matching ``by_name_element``.
+        """
         wanted = query.strip().lower()
         if not wanted:
             return []
         hits: list[Monster] = []
-        seen: set[tuple[str, str]] = set()
         for mon in self.by_id.values():
             if mon.name.lower() == wanted:
                 hits.insert(0, mon)  # exact matches first
             elif wanted in mon.name.lower():
                 hits.append(mon)
-        deduped = []
+        chosen: dict[tuple[str, str], Monster] = {}
+        order: list[tuple[str, str]] = []
         for mon in hits:
             key = (mon.name.lower(), mon.element.lower())
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(mon)
-            if len(deduped) >= limit:
-                break
-        return deduped
+            current = chosen.get(key)
+            if current is None:
+                chosen[key] = mon
+                order.append(key)
+            elif (mon.awaken_level, mon.com2us_id) > (current.awaken_level, current.com2us_id):
+                chosen[key] = mon  # prefer the higher awaken level
+        return [chosen[key] for key in order[:limit]]
 
     def resolve(self, value: str) -> Monster | None:
         """Resolve a dropdown value (com2us_id) or free-typed name/label.

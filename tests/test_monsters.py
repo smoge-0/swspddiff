@@ -80,6 +80,46 @@ class RosterTests(unittest.TestCase):
         demon = self.roster.resolve("Demon")    # unawakened family name
         self.assertIsNotNone(demon)
 
+    def test_search_prefers_higher_awaken_level(self):
+        # Zenitsu Agatsuma: unawakened 32201-32205 (105) vs awakened 32211-32215 (106)
+        hits = self.roster.search("zenitsu")
+        self.assertEqual(len(hits), 5)
+        for mon in hits:
+            self.assertEqual(mon.awaken_level, 1, mon)
+            self.assertEqual(mon.speed, 106, mon)
+        self.assertEqual({m.com2us_id for m in hits},
+                         {32211, 32212, 32213, 32214, 32215})
+
+    def test_resolve_zenitsu_uses_awakened_form(self):
+        mon = self.roster.resolve("Zenitsu")
+        self.assertIsNotNone(mon)
+        self.assertEqual(mon.awaken_level, 1)
+        self.assertEqual(mon.speed, 106)
+
+    def test_search_has_no_duplicate_name_element_pairs(self):
+        for query in ("zenitsu", "fairy", "slime", "lora", "a"):
+            hits = self.roster.search(query, limit=1000)
+            keys = [(m.name, m.element) for m in hits]
+            self.assertEqual(len(keys), len(set(keys)), query)
+
+    def test_search_never_returns_lower_awaken_variant(self):
+        # every name/element group with several entries must resolve to the
+        # highest awaken level, never a lower one
+        from collections import defaultdict
+        groups: dict[tuple[str, str], list] = defaultdict(list)
+        for mon in self.roster.by_id.values():
+            groups[(mon.name, mon.element)].append(mon)
+        dupes = [key for key, members in groups.items() if len(members) > 1]
+        self.assertTrue(dupes, "expected units with unawakened/awakened pairs")
+        for name, element in dupes:
+            members = groups[(name, element)]
+            best = max(members, key=lambda m: (m.awaken_level, m.com2us_id))
+            hits = {m.com2us_id for m in self.roster.search(name, limit=1000)}
+            self.assertIn(best.com2us_id, hits, (name, element))
+            for mon in members:
+                if (mon.awaken_level, mon.com2us_id) < (best.awaken_level, best.com2us_id):
+                    self.assertNotIn(mon.com2us_id, hits, (name, element))
+
     def test_ambiguous_names_flagged(self):
         # family names shared by 2+ elements get element disambiguation
         self.assertIn("Fairy", self.roster.ambiguous_names)
